@@ -15,7 +15,8 @@ import (
 
 // reflect helpers
 
-var _unmarshallerInterface = reflect.TypeOf((*gocql.Unmarshaler)(nil)).Elem()
+var unmarshallerInterface = reflect.TypeOf((*gocql.Unmarshaler)(nil)).Elem()
+var udtUnmarshallerInterface = reflect.TypeOf((*gocql.Unmarshaler)(nil)).Elem()
 
 func baseType(t reflect.Type, expected reflect.Kind) (reflect.Type, error) {
 	t = reflectx.Deref(t)
@@ -28,10 +29,11 @@ func baseType(t reflect.Type, expected reflect.Kind) (reflect.Type, error) {
 // isScannable takes the reflect.Type and the actual dest value and returns
 // whether or not it's Scannable. Something is scannable if:
 //   * it is not a struct
-//   * it implements gocql.Unmarshaler
+//   * it implements gocql.Unmarshaler or gocql.UDTUnmarshaler
 //   * it has no exported fields
 func isScannable(t reflect.Type) bool {
-	if reflect.PtrTo(t).Implements(_unmarshallerInterface) {
+	ptr := reflect.PtrTo(t)
+	if ptr.Implements(unmarshallerInterface) || ptr.Implements(udtUnmarshallerInterface) {
 		return true
 	}
 	if t.Kind() != reflect.Struct {
