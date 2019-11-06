@@ -69,6 +69,17 @@ func (iter *Iterx) Get(dest interface{}) error {
 	return iter.checkErrAndNotFound()
 }
 
+// StructGet scans first row into a destination and closes the iterator. The
+// destination type must be a struct pointer, StructScan will be used.
+//
+// If no rows were selected, ErrNotFound is returned.
+func (iter *Iterx) StructGet(dest interface{}) error {
+	iter.StructScan(dest)
+	iter.Close()
+
+	return iter.checkErrAndNotFound()
+}
+
 func (iter *Iterx) scanAny(dest interface{}) bool {
 	value := reflect.ValueOf(dest)
 	if value.Kind() != reflect.Ptr {

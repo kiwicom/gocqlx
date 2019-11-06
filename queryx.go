@@ -219,6 +219,24 @@ func (q *Queryx) GetRelease(dest interface{}) error {
 	return q.Get(dest)
 }
 
+// StructGet scans first row into a destination. The destination type must be a struct pointer.
+// Iter.StructScan will be used.
+//
+// If no rows were selected, ErrNotFound is returned.
+func (q *Queryx) StructGet(dest interface{}) error {
+	if q.err != nil {
+		return q.err
+	}
+	return Iter(q.Query).StructGet(dest)
+}
+
+// StructGetRelease calls StructGet and releases the query, a released query cannot be
+// reused.
+func (q *Queryx) StructGetRelease(dest interface{}) error {
+	defer q.Release()
+	return q.StructGet(dest)
+}
+
 // Select scans all rows into a destination, which must be a pointer to slice
 // of any type. If the destination slice type is a struct, then Iter.StructScan
 // will be used on each row. If the destination is some other type, then each
