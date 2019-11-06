@@ -166,6 +166,14 @@ func TestStruct(t *testing.T) {
 	})
 }
 
+type ScannableStruct struct {
+	Testfullname string
+}
+
+func (s *ScannableStruct) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
+	return errors.New("should not be called")
+}
+
 func TestScannable(t *testing.T) {
 	session := CreateSession(t)
 	defer session.Close()
@@ -173,6 +181,7 @@ func TestScannable(t *testing.T) {
 		t.Fatal("create table:", err)
 	}
 	m := FullName{"John", "Doe"}
+	m2 := ScannableStruct{Testfullname: "John Doe"}
 
 	if err := session.Query(`INSERT INTO scannable_table (testfullname) values (?)`, m).Exec(); err != nil {
 		t.Fatal("insert:", err)
@@ -189,6 +198,17 @@ func TestScannable(t *testing.T) {
 		}
 	})
 
+	t.Run("structget", func(t *testing.T) {
+		var v ScannableStruct
+		if err := gocqlx.Iter(session.Query(`SELECT testfullname FROM scannable_table`)).StructGet(&v); err != nil {
+			t.Fatal("structget failed", err)
+		}
+
+		if !reflect.DeepEqual(m2, v) {
+			t.Fatal("not equals")
+		}
+	})
+
 	t.Run("select", func(t *testing.T) {
 		var v []FullName
 		if err := gocqlx.Select(&v, session.Query(`SELECT testfullname FROM scannable_table`)); err != nil {
@@ -200,6 +220,21 @@ func TestScannable(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(m, v[0]) {
+			t.Fatal("not equals")
+		}
+	})
+
+	t.Run("structselect", func(t *testing.T) {
+		var v []ScannableStruct
+		if err := gocqlx.Iter(session.Query(`SELECT testfullname FROM scannable_table`)).StructSelect(&v); err != nil {
+			t.Fatal("get failed", err)
+		}
+
+		if len(v) != 1 {
+			t.Fatal("select unexpected number of rows", len(v))
+		}
+
+		if !reflect.DeepEqual(m2, v[0]) {
 			t.Fatal("not equals")
 		}
 	})
