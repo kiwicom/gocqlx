@@ -239,6 +239,24 @@ func (q *Queryx) SelectRelease(dest interface{}) error {
 	return q.Select(dest)
 }
 
+// StructSelect scans all rows into a destination, which must be a pointer to slice
+// of structs. Iter.StructScan will be used on each row.
+//
+// If no rows were selected, ErrNotFound is NOT returned.
+func (q *Queryx) StructSelect(dest interface{}) error {
+	if q.err != nil {
+		return q.err
+	}
+	return Iter(q.Query).StructSelect(dest)
+}
+
+// StructSelectRelease calls Select and releases the query, a released query cannot be
+// reused.
+func (q *Queryx) StructSelectRelease(dest interface{}) error {
+	defer q.Release()
+	return q.StructSelect(dest)
+}
+
 // Iter returns Iterx instance for the query. It should be used when data is too
 // big to be loaded with Select in order to do row by row iteration.
 // See Iterx StructScan function.

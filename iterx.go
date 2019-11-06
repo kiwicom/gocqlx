@@ -103,13 +103,24 @@ func (iter *Iterx) scanAny(dest interface{}) bool {
 //
 // If no rows were selected, ErrNotFound is NOT returned.
 func (iter *Iterx) Select(dest interface{}) error {
-	iter.scanAll(dest)
+	iter.scanAll(dest, false)
 	iter.Close()
 
 	return iter.err
 }
 
-func (iter *Iterx) scanAll(dest interface{}) bool {
+// StructSelect scans all rows into a destination, which must be a pointer to slice
+// of structs and closes the iterator. StructScan will be used on each row.
+//
+// If no rows were selected, ErrNotFound is NOT returned.
+func (iter *Iterx) StructSelect(dest interface{}) error {
+	iter.scanAll(dest, true)
+	iter.Close()
+
+	return iter.err
+}
+
+func (iter *Iterx) scanAll(dest interface{}, structScan bool) bool {
 	value := reflect.ValueOf(dest)
 
 	// json.Unmarshal returns errors for these
@@ -132,10 +143,17 @@ func (iter *Iterx) scanAll(dest interface{}) bool {
 	base := reflectx.Deref(slice.Elem())
 	scannable := isScannable(base)
 
-	// if it's a base type make sure it only has 1 column;  if not return an error
-	if scannable && len(iter.Columns()) > 1 {
-		iter.err = fmt.Errorf("non-struct dest type %s with >1 columns (%d)", base.Kind(), len(iter.Columns()))
-		return false
+	if structScan {
+		if base.Kind() != reflect.Struct {
+			iter.err = fmt.Errorf("non-struct dest type %s with StructSelect", base.Kind())
+			return false
+		}
+	} else {
+		// if it's a base type make sure it only has 1 column;  if not return an error
+		if scannable && len(iter.Columns()) > 1 {
+			iter.err = fmt.Errorf("non-struct dest type %s with >1 columns (%d)", base.Kind(), len(iter.Columns()))
+			return false
+		}
 	}
 
 	var (
@@ -149,7 +167,7 @@ func (iter *Iterx) scanAll(dest interface{}) bool {
 		vp = reflect.New(base)
 
 		// scan into the struct field pointers
-		if !scannable {
+		if structScan || !scannable {
 			ok = iter.StructScan(vp.Interface())
 		} else {
 			ok = iter.Scan(vp.Interface())

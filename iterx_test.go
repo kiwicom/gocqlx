@@ -7,6 +7,7 @@
 package gocqlx_test
 
 import (
+	"errors"
 	"math/big"
 	"reflect"
 	"strings"
@@ -278,6 +279,14 @@ func TestUnsafe(t *testing.T) {
 	})
 }
 
+type NotFoundTableUnmarshaler struct {
+	Testtext string
+}
+
+func (unmarshaler *NotFoundTableUnmarshaler) UnmarshalCQL(info gocql.TypeInfo, data []byte) error {
+	return errors.New("should not be called")
+}
+
 func TestNotFound(t *testing.T) {
 	session := CreateSession(t)
 	defer session.Close()
@@ -321,6 +330,27 @@ func TestNotFound(t *testing.T) {
 		var v []NotFoundTable
 		i := gocqlx.Iter(session.Query(`SELECT * FROM not_found_table`))
 		if err := i.Select(&v); err != nil {
+			t.Fatal(err)
+		}
+		if cap(v) > 0 {
+			t.Fatal("side effect alloc")
+		}
+	})
+
+	t.Run("structselect cql error", func(t *testing.T) {
+		var v []NotFoundTableUnmarshaler
+		i := gocqlx.Iter(session.Query(`SELECT * FROM not_found_table WRONG`).RetryPolicy(nil))
+
+		err := i.StructSelect(&v)
+		if err == nil || !strings.Contains(err.Error(), "WRONG") {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("structselect", func(t *testing.T) {
+		var v []NotFoundTableUnmarshaler
+		i := gocqlx.Iter(session.Query(`SELECT * FROM not_found_table`))
+		if err := i.StructSelect(&v); err != nil {
 			t.Fatal(err)
 		}
 		if cap(v) > 0 {
